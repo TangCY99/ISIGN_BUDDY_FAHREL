@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kata Tanya KTBM</title>
+    <style>
+        body {
+            text-align: center; /* Center all text */
+            font-family: Arial, sans-serif; /* Better font */
+            background-color: #f4f4f4; /* Light background color */
+            margin: 0; /* Remove default margin */
+            padding: 20px; /* Add padding */
+        }
+
+        h1 {
+            margin-bottom: 20px; /* Space between title and webcam */
+            font-size: 2em; /* Increase title size */
+        }
+
+        #webcam-container {
+            position: relative;
+            display: inline-block;
+            margin: 20px 0; /* Space above and below the webcam */
+            border: 2px solid #999; /* Border around the webcam */
+            border-radius: 5px; /* Rounded corners for the webcam frame */
+            overflow: hidden; /* Hide overflow to maintain rounded corners */
+            width: 60%; /* Adjust the width of the webcam */
+            max-width: 600px; /* Maximum width */
+            margin-left: 10%; /* Move the frame to the left */
+        }
+
+            #webcam-container canvas {
+                width: 100%; /* Make the webcam canvas take full width of the container */
+                height: auto; /* Maintain aspect ratio */
+            }
+
+        table {
+            margin: 20px auto; /* Center the table */
+            width: 30%; /* Set a smaller width for the table */
+            border-collapse: collapse; /* Merge table borders */
+            float: right; /* Move the table to the right */
+            margin-right: 10%; /* Add space from the right edge */
+        }
+
+        th, td {
+            border: 1px solid #ccc; /* Add border to cells */
+            padding: 5px; /* Add padding */
+            text-align: left; /* Align text to the left */
+        }
+
+        .meter {
+            width: 100px; /* Width of the meter */
+            height: 6px; /* Height of the accuracy meter */
+            background-color: #ddd; /* Background for the meter */
+            border-radius: 5px; /* Rounded corners for the meter */
+            position: relative; /* Position for the inner accuracy meter */
+        }
+
+        .accuracy-meter {
+            height: 100%;
+            background-color: green; /* Color of the accuracy meter */
+            border-radius: 5px; /* Rounded corners for the inner meter */
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>KATA TANYA (KTBM)</h1>
+    <button type="button" onclick="init()">Start</button>
+    <div id="webcam-container"></div>
+
+    <table>
+        <tbody id="label-container">
+            <!-- Class predictions will be populated here -->
+        </tbody>
+    </table>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+    <script type="text/javascript">
+        const URL = "https://teachablemachine.withgoogle.com/models/Xmb8iYa_3/";
+
+        let model, webcam, maxPredictions;
+        let isWebcamInitialized = false; // Track if webcam is initialized
+
+        // Load the image model and setup the webcam
+        async function init() {
+            if (isWebcamInitialized) return; // Prevent multiple initializations
+
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            // Setup the webcam with higher resolution and wide angle
+            const flip = true; // whether to flip the webcam
+            webcam = new tmImage.Webcam(800, 800, flip); // Adjusted size for HD (1280x720)
+            await webcam.setup(); // request access to the webcam
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            // Append the webcam canvas to the DOM
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+
+            isWebcamInitialized = true; // Mark webcam as initialized
+        }
+
+        async function loop() {
+            webcam.update(); // update the webcam frame
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        // run the webcam image through the image model
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            const labelContainer = document.getElementById("label-container");
+            labelContainer.innerHTML = ''; // Clear previous predictions
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const probability = prediction[i].probability * 100; // Convert to percentage
+                const classPrediction = prediction[i].className;
+
+                // Create a new row for the table
+                const row = document.createElement("tr");
+
+                // Class name cell
+                const classCell = document.createElement("td");
+                classCell.innerText = classPrediction; // Add the class name
+                row.appendChild(classCell);
+
+                // Accuracy meter cell
+                const meterCell = document.createElement("td");
+                const meterDiv = document.createElement("div");
+                meterDiv.className = "meter";
+                const accuracyDiv = document.createElement("div");
+                accuracyDiv.className = "accuracy-meter";
+                accuracyDiv.style.width = probability + "%"; // Set width based on probability
+                meterDiv.appendChild(accuracyDiv);
+                meterCell.appendChild(meterDiv);
+                row.appendChild(meterCell);
+
+                // Percentage cell
+                const percentageCell = document.createElement("td");
+                percentageCell.innerText = Math.round(probability) + "%"; // Display percentage without decimals
+                row.appendChild(percentageCell);
+
+                labelContainer.appendChild(row); // Append the row to the table
+            }
+        }
+    </script>
+</body>
+</html>
